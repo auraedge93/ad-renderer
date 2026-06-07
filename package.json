@@ -1,0 +1,22 @@
+{
+  "name": "ad-composition-renderer",
+  "version": "1.0.0",
+  "description": "Puppeteer-based ad composition renderer for the AI Designer pipeline",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "puppeteer": "^22.0.0",
+    "sharp": "^0.33.3",
+    "cors": "^2.8.5",
+    "helmet": "^7.1.0",
+    "express-rate-limit": "^7.2.0",
+    "dotenv": "^16.4.5"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
