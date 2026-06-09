@@ -14,8 +14,10 @@
  *   - Absolute positioning for pixel-perfect placement
  *   - All text rendered in HTML/CSS (never in the image layer)
  *   - Hero asset is a composited <img> (the Recraft/Ideogram cutout)
- *   - Google Fonts loaded via @import
+ *   - Google Fonts loaded via @import from approved font pack
  */
+
+const { getFontTokens, buildGoogleFontsImport } = require('./fonts');
 
 /**
  * @param {object} params
@@ -30,28 +32,35 @@
  */
 function generateTemplate({ brand, layout, copy, hero_image_url, creative_direction, format, patches }) {
 
-  // ── 1. Resolve brand tokens ─────────────────────────────────────────────────
-  const tokens = resolveBrandTokens(brand, creative_direction, layout, patches);
+  // ── 1. Detect font category from brief + creative direction ─────────────────
+  const briefText = `${brand?.industry || ''} ${creative_direction?.concept || ''} ${layout?.template || ''}`;
+  const conceptText = creative_direction?.concept || '';
+  const fontCategory = brand?.font_category || layout?.font_category || 'default';
+  const fontTokens = getFontTokens(fontCategory !== 'default' ? fontCategory : briefText, conceptText);
 
-  // ── 2. Pick template based on ratio / dimensions ────────────────────────────
+  // ── 2. Resolve brand tokens ─────────────────────────────────────────────────
+  const tokens = resolveBrandTokens(brand, creative_direction, layout, patches, fontTokens);
+
+  // ── 3. Pick template based on ratio / dimensions ────────────────────────────
   const ratio = format || inferRatio(layout.canvas_width, layout.canvas_height);
   const templateFn = ratio === '9:16' ? verticalTemplate
     : ratio === '1.91:1' || ratio === '16:9' ? landscapeTemplate
     : squareTemplate;
 
-  // ── 3. Resolve copy with character limit enforcement ────────────────────────
+  // ── 4. Resolve copy with character limit enforcement ────────────────────────
   const safeCopy = enforceCopyLimits(copy, layout);
 
-  // ── 4. Resolve patch overrides ──────────────────────────────────────────────
+  // ── 5. Resolve patch overrides ──────────────────────────────────────────────
   const resolvedLayout = { ...layout, ...(patches?.specific_fixes ? {} : {}), ...(layout.patches || {}) };
 
-  // ── 5. Build HTML ───────────────────────────────────────────────────────────
+  // ── 6. Build HTML ───────────────────────────────────────────────────────────
   return buildDocument({
     tokens,
     copy: safeCopy,
     layout: resolvedLayout,
     hero_image_url,
     templateFn,
+    fontTokens,
     width: layout.canvas_width || 1200,
     height: layout.canvas_height || 1200
   });
@@ -59,9 +68,14 @@ function generateTemplate({ brand, layout, copy, hero_image_url, creative_direct
 
 // ── Token resolver ────────────────────────────────────────────────────────────
 
-function resolveBrandTokens(brand, creative, layout, patches) {
-  // Precedence: patches > brand memory > creative direction > defaults
+function resolveBrandTokens(brand, creative, layout, patches, fontTokens) {
   const p = patches || {};
+  const ft = fontTokens || {};
+
+  // Font resolution: brand override > font pack display > creative direction > fallback
+  const resolvedDisplayFont = brand?.font_display || ft.display || creative?.typography_heading || 'Plus Jakarta Sans';
+  const resolvedBodyFont    = brand?.font_body    || ft.body   || creative?.typography_body    || 'Montserrat';
+  const resolvedAccentFont  = brand?.font_accent  || ft.accent || 'Dancing Script';
 
   return {
     colorPrimary:        p.forceRebrand ? (brand?.primary_color   || creative?.color_primary  || '#0D1B2A') : (brand?.primary_color   || creative?.color_primary  || '#0D1B2A'),
@@ -69,11 +83,17 @@ function resolveBrandTokens(brand, creative, layout, patches) {
     colorBg:             brand?.bg_color          || creative?.color_bg           || '#FFFFFF',
     colorText:           brand?.text_color        || '#FFFFFF',
     colorTextDark:       brand?.text_color_dark   || '#0D1B2A',
-    fontDisplay:         brand?.font_display      || creative?.typography_heading || 'Playfair Display',
-    fontBody:            brand?.font_body         || creative?.typography_body    || 'Montserrat',
+    fontDisplay:         resolvedDisplayFont,
+    fontDisplayStack:    ft.displayStack || `"${resolvedDisplayFont}", serif`,
+    fontBody:            resolvedBodyFont,
+    fontBodyStack:       ft.bodyStack    || `"${resolvedBodyFont}", sans-serif`,
+    fontAccent:          resolvedAccentFont,
+    fontAccentStack:     ft.accentStack  || `"${resolvedAccentFont}", cursive`,
+    fontWeightDisplay:   ft.weights?.display || '800',
+    fontWeightBody:      ft.weights?.body    || '400',
     logoUrl:             brand?.logo_url          || null,
     headlineFontSize:    p.headlineFontSize || layout?.headline_font_size || '64px',
-    headlineFontWeight:  p.headlineFontWeight || '800',
+    headlineFontWeight:  p.headlineFontWeight || ft.weights?.display || '800',
     bodyFontSize:        p.bodyFontSize || '14px',
     ctaBgColor:          p.ctaBgColor   || brand?.accent_color || creative?.color_accent || '#D4AF37',
     ctaFontWeight:       p.ctaFontWeight || '700',
@@ -123,9 +143,9 @@ function inferRatio(w, h) {
 
 // ── Document shell ────────────────────────────────────────────────────────────
 
-function buildDocument({ tokens, copy, layout, hero_image_url, templateFn, width, height }) {
+function buildDocument({ tokens, copy, layout, hero_image_url, templateFn, fontTokens, width, height }) {
   const cssVars = buildCssVars(tokens);
-  const googleFonts = buildGoogleFontsUrl(tokens.fontDisplay, tokens.fontBody);
+  const googleFontsUrl = fontTokens ? buildGoogleFontsImport(fontTokens) : buildFallbackGoogleFontsUrl(tokens);
   const bodyHtml = templateFn({ tokens, copy, layout, hero_image_url, width, height });
 
   return `<!DOCTYPE html>
@@ -134,7 +154,7 @@ function buildDocument({ tokens, copy, layout, hero_image_url, templateFn, width
   <meta charset="UTF-8">
   <meta name="viewport" content="width=${width}, height=${height}">
   <style>
-    @import url('${googleFonts}');
+    @import url('${googleFontsUrl}');
 
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -160,7 +180,7 @@ ${cssVars}
 
     /* ── Typography system ── */
     .headline {
-      font-family: var(--font-display), serif;
+      font-family: var(--font-display);
       font-size: var(--headline-font-size);
       font-weight: var(--headline-font-weight);
       line-height: 1.05;
@@ -169,7 +189,7 @@ ${cssVars}
     }
 
     .subheadline {
-      font-family: var(--font-body), sans-serif;
+      font-family: var(--font-body);
       font-size: var(--body-font-size);
       font-weight: 400;
       line-height: 1.5;
@@ -178,16 +198,16 @@ ${cssVars}
     }
 
     .body-copy {
-      font-family: var(--font-body), sans-serif;
+      font-family: var(--font-body);
       font-size: calc(var(--body-font-size) * 0.9);
-      font-weight: 400;
+      font-weight: var(--font-weight-body);
       line-height: 1.6;
       color: var(--color-text);
       opacity: 0.75;
     }
 
     .tagline {
-      font-family: var(--font-body), sans-serif;
+      font-family: var(--font-body);
       font-size: calc(var(--body-font-size) * 0.8);
       font-weight: 500;
       letter-spacing: 0.12em;
@@ -195,12 +215,33 @@ ${cssVars}
       color: var(--color-accent);
     }
 
+    .script-accent {
+      font-family: var(--font-accent);
+      font-size: calc(var(--body-font-size) * 1.4);
+      font-weight: 600;
+      color: var(--color-text);
+      opacity: 0.9;
+    }
+
+    .info-badge {
+      display: inline-block;
+      background: var(--cta-bg-color);
+      color: var(--color-primary);
+      font-family: var(--font-body);
+      font-size: 13px;
+      font-weight: 700;
+      padding: 6px 16px;
+      border-radius: 100px;
+      letter-spacing: 0.02em;
+      white-space: nowrap;
+    }
+
     /* ── CTA button ── */
     .cta-btn {
       display: inline-block;
       background: var(--cta-bg-color);
       color: var(--color-primary);
-      font-family: var(--font-body), sans-serif;
+      font-family: var(--font-body);
       font-size: var(--cta-font-size);
       font-weight: var(--cta-font-weight);
       padding: var(--cta-padding-y) var(--cta-padding-x);
@@ -254,8 +295,11 @@ function buildCssVars(tokens) {
     '--color-bg':              tokens.colorBg,
     '--color-text':            tokens.colorText,
     '--color-text-dark':       tokens.colorTextDark,
-    '--font-display':          `"${tokens.fontDisplay}"`,
-    '--font-body':             `"${tokens.fontBody}"`,
+    '--font-display':          tokens.fontDisplayStack || `"${tokens.fontDisplay}", serif`,
+    '--font-body':             tokens.fontBodyStack    || `"${tokens.fontBody}", sans-serif`,
+    '--font-accent':           tokens.fontAccentStack  || `"${tokens.fontAccent}", cursive`,
+    '--font-weight-display':   tokens.fontWeightDisplay || '800',
+    '--font-weight-body':      tokens.fontWeightBody    || '400',
     '--headline-font-size':    tokens.headlineFontSize,
     '--headline-font-weight':  tokens.headlineFontWeight,
     '--body-font-size':        tokens.bodyFontSize,
@@ -269,42 +313,13 @@ function buildCssVars(tokens) {
   }).map(([k, v]) => `      ${k}: ${v};`).join('\n');
 }
 
-function buildGoogleFontsUrl(display, body) {
-  const families = [
-    ...resolveGoogleFont(display),
-    ...resolveGoogleFont(body)
-  ].filter(Boolean);
-
-  const unique = [...new Set(families)];
-  const encoded = unique.map(f => `family=${encodeURIComponent(f)}:wght@400;500;600;700;800`).join('&');
-  return `https://fonts.googleapis.com/css2?${encoded}&display=swap`;
-}
-
-// Map common font names to their exact Google Fonts names
-function resolveGoogleFont(name) {
-  if (!name) return [];
-  const map = {
-    'playfair display': 'Playfair+Display',
-    'playfair':         'Playfair+Display',
-    'montserrat':       'Montserrat',
-    'plus jakarta sans':'Plus+Jakarta+Sans',
-    'jakarta sans':     'Plus+Jakarta+Sans',
-    'dm sans':          'DM+Sans',
-    'raleway':          'Raleway',
-    'oswald':           'Oswald',
-    'lato':             'Lato',
-    'nunito':           'Nunito',
-    'poppins':          'Poppins',
-    'bebas neue':       'Bebas+Neue',
-    'cormorant garamond':'Cormorant+Garamond',
-    'libre baskerville':'Libre+Baskerville',
-    'merriweather':     'Merriweather',
-    'exo 2':            'Exo+2',
-    'space grotesk':    'Space+Grotesk',
-    'outfit':           'Outfit',
-  };
-  const key = name.toLowerCase().replace(/\s+bold|\s+light|\s+regular|\s+\d+/gi, '').trim();
-  return [map[key] || name.replace(/\s+/g, '+')];
+// Fallback Google Fonts URL when no font pack is detected
+function buildFallbackGoogleFontsUrl(tokens) {
+  const families = [tokens.fontDisplay, tokens.fontBody]
+    .filter(Boolean)
+    .map(f => `family=${f.replace(/\s+/g, '+')}:wght@400;500;600;700;800`)
+    .join('&');
+  return `https://fonts.googleapis.com/css2?${families}&display=swap`;
 }
 
 // ── Template: Square 1:1 ──────────────────────────────────────────────────────
