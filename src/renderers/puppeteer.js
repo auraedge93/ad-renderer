@@ -39,11 +39,12 @@ async function getBrowser() {
  *
  * @param {string} html - Complete HTML document to render
  * @param {object} options
- * @param {number} options.width  - Canvas width in pixels
- * @param {number} options.height - Canvas height in pixels
+ * @param {number} options.width   - Canvas width in pixels
+ * @param {number} options.height  - Canvas height in pixels
+ * @param {number} options.timeout - Puppeteer navigation timeout in ms
  * @returns {{ buffer: Buffer, width: number, height: number }}
  */
-async function renderAd(html, { width = 1200, height = 1200 } = {}) {
+async function renderAd(html, { width = 1080, height = 1080, timeout = 60000 } = {}) {
   const browser = await getBrowser();
   const page = await browser.newPage();
 
@@ -55,27 +56,37 @@ async function renderAd(html, { width = 1200, height = 1200 } = {}) {
       deviceScaleFactor: 2   // 2x for retina-quality output
     });
 
-    // Load fonts before rendering
-    // Google Fonts are injected via @import in the HTML template itself,
-    // so we just need to wait for them to load.
+    // Use domcontentloaded — much faster than networkidle0.
+    // Google Fonts load asynchronously via <link> tags (non-blocking).
+    // The render-ready signal in engine.js fires after DOM is built.
     await page.setContent(html, {
-      waitUntil: ['networkidle0', 'domcontentloaded']
+      waitUntil: 'domcontentloaded',
+      timeout
     });
+
+    // Wait for render-ready signal injected by engine.js
+    // Falls back to a fixed delay if signal not found within 5s
+    try {
+      await page.waitForSelector('[data-render-ready]', { timeout: 5000 });
+    } catch {
+      // Fallback — render-ready not found, wait briefly
+      await new Promise(r => setTimeout(r, 500));
+    }
 
     // Wait for all images (hero cutout, logo) to finish loading
     await page.evaluate(() => {
       return Promise.all(
         Array.from(document.images)
           .filter(img => !img.complete)
-          .map(img => new Promise((resolve, reject) => {
+          .map(img => new Promise((resolve) => {
             img.onload = resolve;
             img.onerror = () => resolve(); // don't fail on broken images
           }))
       );
     });
 
-    // Extra buffer for web fonts to render
-    await new Promise(r => setTimeout(r, 300));
+    // Extra buffer for web fonts to swap in
+    await new Promise(r => setTimeout(r, 400));
 
     // Screenshot the exact canvas element (not the full page)
     const canvasEl = await page.$('#ad-canvas');
