@@ -52,7 +52,8 @@ app.get('/health', (req, res) => {
 // Response:
 // { "image_base64": "...", "image_url": "...", "width": 1200, "height": 1200, "format": "png" }
 //
-app.post('/render', requireApiKey, validatePayload, async (req, res) => {
+app.post("/render", requireApiKey, validatePayload, async (req, res) => {
+  res.setTimeout(90000);
   const startTime = Date.now();
 
   try {
@@ -70,8 +71,8 @@ app.post('/render', requireApiKey, validatePayload, async (req, res) => {
 
     // 2. Render via Puppeteer → PNG buffer
     const { buffer, width, height } = await renderAd(html, {
-      width: layout.canvas_width || 1200,
-      height: layout.canvas_height || 1200
+      width: layout.canvas_width || 1080,
+      height: layout.canvas_height || 1080
     });
 
     // 3. Return base64 PNG (n8n can receive this directly)
@@ -104,7 +105,8 @@ app.post('/render', requireApiKey, validatePayload, async (req, res) => {
 // Request body: same as /render, plus:
 // { "variants": ["1:1", "9:16", "1.91:1"] }  // optional, defaults to all
 //
-app.post('/render/variants', requireApiKey, validatePayload, async (req, res) => {
+app.post("/render", requireApiKey, validatePayload, async (req, res) => {
+  res.setTimeout(90000);
   const startTime = Date.now();
 
   const PLATFORM_VARIANTS = [
@@ -183,7 +185,8 @@ app.post('/render/variants', requireApiKey, validatePayload, async (req, res) =>
 //   }
 // }
 //
-app.post('/render/patch', requireApiKey, validatePayload, async (req, res) => {
+app.post("/render", requireApiKey, validatePayload, async (req, res) => {
+  res.setTimeout(90000);
   const startTime = Date.now();
 
   try {
