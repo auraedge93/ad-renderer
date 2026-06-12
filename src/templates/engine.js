@@ -153,10 +153,14 @@ function buildDocument({ tokens, copy, layout, hero_image_url, templateFn, fontT
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=${width}, height=${height}">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="${googleFontsUrl}">
   <style>
-    @import url('${googleFontsUrl}');
 
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    @font-face { font-display: swap; }
 
     :root {
 ${cssVars}
@@ -284,6 +288,7 @@ ${cssVars}
   <div id="ad-canvas">
     ${bodyHtml}
   </div>
+  <script>document.body.setAttribute('data-render-ready', 'true');</script>
 </body>
 </html>`;
 }
