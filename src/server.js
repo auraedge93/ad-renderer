@@ -3,6 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
+const { randomUUID } = require('crypto');
 const { renderAd } = require('./renderers/puppeteer');
 const { generateTemplate } = require('./templates/engine');
 const { validatePayload } = require('./middleware/validate');
@@ -10,6 +11,16 @@ const { validatePayload } = require('./middleware/validate');
 const app = express();
 const PORT = process.env.PORT || 3000;
 const API_KEY = process.env.API_KEY;
+
+// ── In-memory file store (URL mode — avoids OOM in n8n) ──────────────────────
+const fileStore = new Map(); // id → { buffer, contentType, createdAt }
+
+setInterval(() => {
+  const cutoff = Date.now() - 10 * 60 * 1000; // 10 min TTL
+  for (const [id, entry] of fileStore) {
+    if (entry.createdAt < cutoff) fileStore.delete(id);
+  }
+}, 60_000);
 
 // ── Middleware ────────────────────────────────────────────────────────────────
 app.use(helmet({ contentSecurityPolicy: false }));
@@ -34,6 +45,16 @@ function requireApiKey(req, res, next) {
 // ── Health check ──────────────────────────────────────────────────────────────
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', version: '1.0.0', timestamp: new Date().toISOString() });
+});
+
+// ── GET /file/:id ─────────────────────────────────────────────────────────────
+// Serves a rendered image by ID. Files expire after 10 minutes.
+app.get('/file/:id', requireApiKey, (req, res) => {
+  const entry = fileStore.get(req.params.id);
+  if (!entry) return res.status(404).json({ error: 'File not found or expired' });
+  res.setHeader('Content-Type', entry.contentType);
+  res.setHeader('Content-Disposition', `inline; filename="${req.params.id}.png"`);
+  res.send(entry.buffer);
 });
 
 // ── POST /render ──────────────────────────────────────────────────────────────
@@ -75,16 +96,20 @@ app.post("/render", requireApiKey, validatePayload, async (req, res) => {
       height: layout.canvas_height || 1080
     });
 
-    // 3. Return base64 PNG (n8n can receive this directly)
-    const base64 = buffer.toString('base64');
+    // 3. Store buffer and return a URL — avoids sending large binary through n8n memory
+    const fileId = randomUUID();
+    fileStore.set(fileId, { buffer, contentType: 'image/png', createdAt: Date.now() });
+    const baseUrl = process.env.RENDERER_BASE_URL || `https://${req.headers.host}`;
 
     res.json({
       success: true,
-      image_base64: base64,
-      image_data_url: `data:image/png;base64,${base64}`,
+      url: `${baseUrl}/file/${fileId}`,
+      image_url: `${baseUrl}/file/${fileId}`,
+      fileId,
       width,
       height,
       format: 'png',
+      expires_in: '10 minutes',
       render_time_ms: Date.now() - startTime
     });
 
@@ -209,16 +234,20 @@ app.post("/render", requireApiKey, validatePayload, async (req, res) => {
       height: patchedLayout.canvas_height || 1200
     });
 
-    const base64 = buffer.toString('base64');
+    const fileId = randomUUID();
+    fileStore.set(fileId, { buffer, contentType: 'image/png', createdAt: Date.now() });
+    const baseUrl = process.env.RENDERER_BASE_URL || `https://${req.headers.host}`;
 
     res.json({
       success: true,
-      image_base64: base64,
-      image_data_url: `data:image/png;base64,${base64}`,
+      url: `${baseUrl}/file/${fileId}`,
+      image_url: `${baseUrl}/file/${fileId}`,
+      fileId,
       width,
       height,
       format: 'png',
       patches_applied: failing_dimensions,
+      expires_in: '10 minutes',
       render_time_ms: Date.now() - startTime
     });
 
