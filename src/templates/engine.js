@@ -1,19 +1,14 @@
 /**
- * AuraEdge Ad Template Engine v3.0
- * Nigerian/West African Design DNA — 45 reference designs
- * 
- * Templates:
- *   square    - 1:1  (Instagram Post, Facebook Feed)
- *   vertical  - 9:16 (Stories, TikTok)
- *   landscape - 1.91:1 (LinkedIn, Twitter/X)
- * 
- * Design principles from 45 Nigerian reference designs:
- * - Hero image fills 60-70% of canvas, bleeds to edges
- * - Headline at 40-60% canvas width, heavyweight typography
- * - Info bar at bottom 15-20% with date/venue/CTA
- * - Dark gradient overlay ensures text legibility
- * - Pill badges for all temporal information
- * - High canvas density (15-25% white space only)
+ * AuraEdge Ad Template Engine v4.0
+ * Nigerian/West African Design DNA — rebuilt from 3-image reference analysis
+ *
+ * KEY DESIGN PRINCIPLES FROM REFERENCES:
+ * 1. People are FOREGROUND — cutout subjects bleed past frame edges, z-index above type
+ * 2. Event name IS the design — type fills 40-60% canvas, 180-320px scale
+ * 3. Three clear zones: TOP (brand/logo), MIDDLE (headline + people), BOTTOM (info bar)
+ * 4. Dark gradient behind text zone only — not full canvas darkening
+ * 5. Every detail in a pill badge — date, time, theme, admission
+ * 6. High density — 85%+ canvas coverage, hierarchy by size not whitespace
  */
 
 const { getFontTokens, buildGoogleFontsImport } = require('./fonts');
@@ -43,9 +38,9 @@ function generateTemplate({ brand, layout, copy, hero_image_url, creative_direct
 }
 
 function resolveBrandTokens(brand, creative, layout, patches, fontTokens) {
-  const p = patches || {};
+  const p = patches?.patches || patches || {};
   const ft = fontTokens || {};
-  const resolvedDisplayFont = brand?.font_display || ft.display || creative?.typography_heading || 'Plus Jakarta Sans';
+  const resolvedDisplayFont = brand?.font_display || ft.display || creative?.typography_heading || 'Bebas Neue';
   const resolvedBodyFont = brand?.font_body || ft.body || creative?.typography_body || 'Montserrat';
 
   return {
@@ -53,25 +48,38 @@ function resolveBrandTokens(brand, creative, layout, patches, fontTokens) {
     colorAccent:        brand?.accent_color  || creative?.color_accent  || '#D4AF37',
     colorBg:            brand?.bg_color      || creative?.color_bg      || '#0D1B2A',
     colorText:          '#FFFFFF',
-    colorTextDark:      brand?.text_color_dark || '#0D1B2A',
+    colorTextDark:      brand?.text_color_dark || '#1A0A00',
     fontDisplay:        resolvedDisplayFont,
-    fontDisplayStack:   ft.displayStack || `"${resolvedDisplayFont}", serif`,
+    fontDisplayStack:   ft.displayStack || `"${resolvedDisplayFont}", "Anton", "Impact", serif`,
     fontBody:           resolvedBodyFont,
-    fontBodyStack:      ft.bodyStack    || `"${resolvedBodyFont}", sans-serif`,
-    fontWeightDisplay:  ft.weights?.display || '800',
+    fontBodyStack:      ft.bodyStack    || `"${resolvedBodyFont}", "Poppins", sans-serif`,
+    fontWeightDisplay:  ft.weights?.display || '900',
     fontWeightBody:     ft.weights?.body    || '400',
     logoUrl:            brand?.logo_url || null,
-    headlineFontSize:   p.headlineFontSize || layout?.headline_font_size || '72px',
-    headlineFontWeight: p.headlineFontWeight || ft.weights?.display || '800',
+    headlineFontSize:   p.headlineFontSize || layout?.headline_font_size || '110px',
+    headlineFontWeight: p.headlineFontWeight || ft.weights?.display || '900',
     bodyFontSize:       p.bodyFontSize || '15px',
     ctaBgColor:         p.ctaBgColor || brand?.accent_color || creative?.color_accent || '#D4AF37',
-    ctaFontWeight:      '700',
-    ctaPaddingX:        '32px',
-    ctaPaddingY:        '14px',
-    ctaFontSize:        '15px',
-    safeZone:           layout?.safe_zone_padding || '48px',
+    ctaTextColor:       contrastColor(brand?.accent_color || creative?.color_accent || '#D4AF37'),
+    ctaFontWeight:      p.ctaFontWeight || '800',
+    ctaPaddingX:        p.ctaPaddingX || '40px',
+    ctaPaddingY:        p.ctaPaddingY || '18px',
+    ctaFontSize:        '16px',
+    safeZone:           parseInt(layout?.safe_zone_padding) || 56,
     brandName:          brand?.brand_name || '',
   };
+}
+
+// Pick black or white text based on background luminance
+function contrastColor(hex) {
+  try {
+    const c = hex.replace('#', '');
+    const r = parseInt(c.substr(0,2),16);
+    const g = parseInt(c.substr(2,2),16);
+    const b = parseInt(c.substr(4,2),16);
+    const lum = (0.299*r + 0.587*g + 0.114*b) / 255;
+    return lum > 0.55 ? '#0D1B2A' : '#FFFFFF';
+  } catch { return '#0D1B2A'; }
 }
 
 function enforceCopyLimits(copy, layout) {
@@ -113,7 +121,6 @@ function buildDocument({ tokens, copy, layout, hero_image_url, templateFn, fontT
   <link rel="stylesheet" href="${googleFontsUrl}">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    @font-face { font-display: swap; }
 
     :root {
 ${cssVars}
@@ -135,81 +142,160 @@ ${cssVars}
       font-family: var(--font-body), sans-serif;
     }
 
+    /* ── TYPOGRAPHY ── */
     .headline {
       font-family: var(--font-display);
       font-size: var(--headline-font-size);
       font-weight: var(--headline-font-weight);
-      line-height: 1.0;
-      letter-spacing: -0.02em;
+      line-height: 0.92;
+      letter-spacing: -0.01em;
       color: #FFFFFF;
-      text-shadow: 0 2px 20px rgba(0,0,0,0.5);
+      text-transform: uppercase;
+      text-shadow: 3px 3px 0px rgba(0,0,0,0.4), 0 0 40px rgba(0,0,0,0.6);
     }
 
+    .headline-accent {
+      color: var(--color-accent);
+    }
+
+    .event-number {
+      font-family: var(--font-display);
+      font-weight: 900;
+      color: var(--color-accent);
+      text-shadow: 4px 4px 0px rgba(0,0,0,0.5);
+    }
+
+    .subheadline-text {
+      font-family: var(--font-body);
+      font-size: 17px;
+      font-weight: 600;
+      color: rgba(255,255,255,0.95);
+      line-height: 1.35;
+      letter-spacing: 0.02em;
+    }
+
+    .body-text {
+      font-family: var(--font-body);
+      font-size: 14px;
+      font-weight: 400;
+      color: rgba(255,255,255,0.85);
+      line-height: 1.5;
+    }
+
+    .tagline-text {
+      font-family: var(--font-body);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--color-accent);
+    }
+
+    /* ── BADGES & BUTTONS ── */
     .pill-badge {
       display: inline-flex;
       align-items: center;
+      gap: 6px;
       background: var(--color-accent);
       color: var(--color-primary);
       font-family: var(--font-body);
       font-size: 13px;
+      font-weight: 800;
+      padding: 7px 18px;
+      border-radius: 100px;
+      letter-spacing: 0.04em;
+      white-space: nowrap;
+      text-transform: uppercase;
+    }
+
+    .pill-badge-dark {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(0,0,0,0.65);
+      border: 1px solid rgba(255,255,255,0.2);
+      color: #FFFFFF;
+      font-family: var(--font-body);
+      font-size: 13px;
       font-weight: 700;
-      padding: 6px 18px;
+      padding: 7px 16px;
       border-radius: 100px;
       letter-spacing: 0.03em;
       white-space: nowrap;
     }
 
+    .theme-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--color-accent);
+      color: var(--color-primary);
+      font-family: var(--font-body);
+      font-size: 12px;
+      font-weight: 800;
+      padding: 6px 14px;
+      border-radius: 6px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
     .cta-btn {
       display: inline-block;
       background: var(--cta-bg-color);
-      color: var(--color-primary);
+      color: var(--cta-text-color);
       font-family: var(--font-body);
       font-size: var(--cta-font-size);
       font-weight: var(--cta-font-weight);
       padding: var(--cta-padding-y) var(--cta-padding-x);
       border-radius: 100px;
-      letter-spacing: 0.02em;
+      letter-spacing: 0.04em;
       white-space: nowrap;
-      text-decoration: none;
+      text-transform: uppercase;
     }
 
+    .info-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(255,255,255,0.12);
+      border: 1.5px solid rgba(255,255,255,0.25);
+      color: #FFFFFF;
+      font-family: var(--font-body);
+      font-size: 13px;
+      font-weight: 600;
+      padding: 8px 16px;
+      border-radius: 8px;
+      white-space: nowrap;
+    }
+
+    /* ── BRAND LOGO ── */
     .brand-logo {
-      max-width: 100px;
-      max-height: 36px;
+      max-width: 120px;
+      max-height: 44px;
       object-fit: contain;
       filter: brightness(0) invert(1);
     }
 
-    .tagline-text {
+    .brand-name-text {
       font-family: var(--font-body);
       font-size: 12px;
-      font-weight: 600;
-      letter-spacing: 0.15em;
+      font-weight: 800;
+      letter-spacing: 0.22em;
       text-transform: uppercase;
-      color: var(--color-accent);
-    }
-
-    .subheadline-text {
-      font-family: var(--font-body);
-      font-size: 16px;
-      font-weight: 500;
       color: rgba(255,255,255,0.9);
-      line-height: 1.4;
     }
 
-    .body-text {
-      font-family: var(--font-body);
-      font-size: 13px;
-      font-weight: 400;
-      color: rgba(255,255,255,0.75);
-      line-height: 1.5;
-    }
-
+    /* ── ACCENT ELEMENTS ── */
     .accent-line {
-      width: 40px;
-      height: 3px;
+      height: 4px;
       background: var(--color-accent);
       border-radius: 2px;
+    }
+
+    .divider-line {
+      width: 100%;
+      height: 1px;
+      background: rgba(255,255,255,0.15);
     }
   </style>
 </head>
@@ -228,238 +314,356 @@ function buildCssVars(tokens) {
     '--color-accent':         tokens.colorAccent,
     '--color-bg':             tokens.colorBg,
     '--color-text':           tokens.colorText,
-    '--color-text-dark':      tokens.colorTextDark,
-    '--font-display':         tokens.fontDisplayStack || `"${tokens.fontDisplay}", serif`,
-    '--font-body':            tokens.fontBodyStack    || `"${tokens.fontBody}", sans-serif`,
-    '--font-weight-display':  tokens.fontWeightDisplay || '800',
-    '--font-weight-body':     tokens.fontWeightBody    || '400',
+    '--font-display':         tokens.fontDisplayStack,
+    '--font-body':            tokens.fontBodyStack,
     '--headline-font-size':   tokens.headlineFontSize,
     '--headline-font-weight': tokens.headlineFontWeight,
-    '--body-font-size':       tokens.bodyFontSize,
     '--cta-bg-color':         tokens.ctaBgColor,
+    '--cta-text-color':       tokens.ctaTextColor,
     '--cta-font-weight':      tokens.ctaFontWeight,
+    '--cta-font-size':        tokens.ctaFontSize,
     '--cta-padding-x':        tokens.ctaPaddingX,
     '--cta-padding-y':        tokens.ctaPaddingY,
-    '--cta-font-size':        tokens.ctaFontSize,
-    '--safe-zone':            tokens.safeZone,
   }).map(([k, v]) => `      ${k}: ${v};`).join('\n');
 }
 
 function buildFallbackGoogleFontsUrl(tokens) {
-  const families = [tokens.fontDisplay, tokens.fontBody]
-    .filter(Boolean)
-    .map(f => `family=${f.replace(/\s+/g, '+')}:wght@400;500;600;700;800`)
-    .join('&');
-  return `https://fonts.googleapis.com/css2?${families}&display=swap`;
+  const display = (tokens.fontDisplay || 'Bebas Neue').replace(/ /g, '+');
+  const body = (tokens.fontBody || 'Montserrat').replace(/ /g, '+');
+  return `https://fonts.googleapis.com/css2?family=${display}&family=${body}:wght@400;600;700;800&display=swap`;
 }
 
-// ── SQUARE TEMPLATE 1:1 ───────────────────────────────────────────────────────
-// Nigerian flyer DNA: hero fills canvas, headline top-left dominant,
-// info bar bottom with pill badges, gradient overlay for legibility
+
+// ══════════════════════════════════════════════════════════════════════════════
+// SQUARE TEMPLATE 1:1  (1080×1080)
+// Based on reference designs: 3-zone layout, people forward, giant type
+//
+// ZONE 1 (top 12%):   Brand name + date badge pill
+// ZONE 2 (mid 55%):   Giant headline + hero image (person bleeds INTO headline)
+// ZONE 3 (bot 33%):   Dark info bar with subheadline, venue, CTA
+// ══════════════════════════════════════════════════════════════════════════════
 
 function squareTemplate({ tokens, copy, layout, hero_image_url, width, height }) {
-  const sz = 48;
-  const infoBarH = Math.round(height * 0.22);
-  const gradientColor = tokens.colorPrimary;
+  const sz = tokens.safeZone;
+  const bg = tokens.colorBg;
+  const accent = tokens.colorAccent;
+  const primary = tokens.colorPrimary;
+
+  // Zone heights
+  const topBarH  = Math.round(height * 0.11);   // brand bar
+  const infoBarH = Math.round(height * 0.30);   // bottom info bar
+  const midH     = height - topBarH - infoBarH; // hero + headline zone
+
+  // Headline size — big, like the references
+  const hl = parseInt(tokens.headlineFontSize) || 110;
+
+  // Gradient for left side text protection
+  const leftGrad = `linear-gradient(to right, ${primary}EE 0%, ${primary}CC 35%, ${primary}88 60%, transparent 85%)`;
+  // Top gradient
+  const topGrad  = `linear-gradient(to bottom, ${primary}DD 0%, transparent 100%)`;
+  // Bottom info bar background
+  const barBg    = darken(primary, 15);
 
   return `
-    <!-- Full-canvas hero image -->
+    <!-- ── LAYER 1: Base background ── -->
+    <div style="position:absolute;inset:0;z-index:1;background:${bg};"></div>
+
+    <!-- ── LAYER 2: Hero image — bleeds full canvas ── -->
     ${hero_image_url ? `
-    <div style="position:absolute;inset:0;z-index:1;">
+    <div style="position:absolute;inset:0;z-index:2;overflow:hidden;">
       <img src="${hero_image_url}"
-        style="width:100%;height:100%;object-fit:cover;object-position:center top;"
-        alt="hero" />
-    </div>` : `
-    <div style="position:absolute;inset:0;z-index:1;background:${gradientColor};"></div>`}
+        style="
+          width:100%;height:100%;
+          object-fit:cover;
+          object-position:center top;
+        "
+        alt="hero" crossorigin="anonymous"/>
+    </div>` : ''}
 
-    <!-- Dark gradient overlay top — ensures headline legibility -->
+    <!-- ── LAYER 3: Left gradient — protects text from image ── -->
     <div style="
-      position:absolute;top:0;left:0;right:0;
-      height:55%;z-index:2;
-      background:linear-gradient(to bottom,
-        rgba(0,0,0,0.75) 0%,
-        rgba(0,0,0,0.4) 60%,
-        transparent 100%);
+      position:absolute;inset:0;z-index:3;
+      background:${leftGrad};
     "></div>
 
-    <!-- Dark gradient overlay bottom — info bar background -->
+    <!-- ── LAYER 4: Top gradient ── -->
     <div style="
-      position:absolute;bottom:0;left:0;right:0;
-      height:${infoBarH + 40}px;z-index:2;
-      background:linear-gradient(to top,
-        ${gradientColor}F5 0%,
-        ${gradientColor}CC 50%,
-        transparent 100%);
+      position:absolute;top:0;left:0;right:0;height:${topBarH + 40}px;
+      z-index:4;
+      background:${topGrad};
     "></div>
 
-    <!-- TOP SECTION: Brand + Tagline -->
+    <!-- ── LAYER 5: Bottom info bar ── -->
     <div style="
-      position:absolute;top:${sz}px;left:${sz}px;right:${sz}px;
-      z-index:10;
-      display:flex;justify-content:space-between;align-items:center;
-    ">
-      ${tokens.logoUrl
-        ? `<img src="${tokens.logoUrl}" class="brand-logo" alt="logo"/>`
-        : `<span class="tagline-text">${tokens.brandName || copy.tagline || ''}</span>`
-      }
-      ${copy.date_badge ? `<span class="pill-badge">${copy.date_badge}</span>` : ''}
-    </div>
+      position:absolute;bottom:0;left:0;right:0;height:${infoBarH}px;
+      z-index:4;
+      background:${barBg};
+      border-top:3px solid ${accent};
+    "></div>
 
-    <!-- HEADLINE — dominant, top-left, 40% canvas -->
+    <!-- ── ZONE 1: Top brand bar ── -->
     <div style="
       position:absolute;
-      top:${sz + 60}px;
-      left:${sz}px;
-      right:${Math.round(width * 0.15)}px;
+      top:0;left:0;right:0;height:${topBarH}px;
       z-index:10;
+      display:flex;align-items:center;justify-content:space-between;
+      padding:0 ${sz}px;
     ">
-      <div class="accent-line" style="margin-bottom:16px;"></div>
-      <h1 class="headline" style="
-        font-size:${Math.round(width * 0.072)}px;
-        max-width:${Math.round(width * 0.75)}px;
-        margin-bottom:12px;
-      ">${copy.headline || ''}</h1>
-      ${copy.subheadline ? `
-      <p class="subheadline-text" style="
-        max-width:${Math.round(width * 0.65)}px;
-        margin-top:12px;
-      ">${copy.subheadline}</p>` : ''}
+      <!-- Brand identity -->
+      <div style="display:flex;align-items:center;gap:12px;">
+        ${tokens.logoUrl
+          ? `<img src="${tokens.logoUrl}" class="brand-logo" alt="logo"/>`
+          : `<div>
+               <div class="accent-line" style="width:30px;margin-bottom:6px;"></div>
+               <span class="brand-name-text">${tokens.brandName || ''}</span>
+             </div>`
+        }
+      </div>
+      <!-- Date badge top-right -->
+      ${copy.date_badge
+        ? `<span class="pill-badge">${copy.date_badge}</span>`
+        : ''
+      }
     </div>
 
-    <!-- BOTTOM INFO BAR -->
+    <!-- ── ZONE 2: Headline — top-left, large, on top of hero ── -->
+    <div style="
+      position:absolute;
+      top:${topBarH + 20}px;
+      left:${sz}px;
+      width:${Math.round(width * 0.72)}px;
+      z-index:10;
+    ">
+      <!-- Tagline / event category above headline -->
+      ${copy.tagline ? `
+      <div style="margin-bottom:14px;">
+        <span class="tagline-text">${copy.tagline}</span>
+      </div>` : ''}
+
+      <!-- GIANT HEADLINE -->
+      <h1 class="headline" style="
+        font-size:${hl}px;
+        max-width:${Math.round(width * 0.68)}px;
+        line-height:0.90;
+      ">${copy.headline || ''}</h1>
+
+      <!-- Theme badge under headline -->
+      ${copy.subheadline ? `
+      <div style="margin-top:18px;">
+        <div style="
+          display:inline-flex;align-items:center;gap:8px;
+          background:${accent};
+          padding:7px 16px;border-radius:6px;
+        ">
+          <span style="
+            font-family:var(--font-body);font-size:11px;
+            font-weight:800;letter-spacing:0.1em;
+            color:${contrastColor(accent)};text-transform:uppercase;
+          ">THEME</span>
+          <span style="
+            font-family:var(--font-body);font-size:14px;
+            font-weight:700;color:${contrastColor(accent)};
+            letter-spacing:0.02em;
+          ">${copy.subheadline}</span>
+        </div>
+      </div>` : ''}
+    </div>
+
+    <!-- ── ZONE 3: Bottom info bar ── -->
     <div style="
       position:absolute;
       bottom:0;left:0;right:0;
       height:${infoBarH}px;
       z-index:10;
-      padding:20px ${sz}px;
-      display:flex;
-      flex-direction:column;
-      justify-content:space-between;
+      padding:${Math.round(infoBarH * 0.12)}px ${sz}px;
+      display:flex;flex-direction:column;justify-content:space-between;
     ">
-      <!-- Info row: body copy + venue -->
-      <div style="margin-bottom:14px;">
-        ${copy.body_copy ? `<p class="body-text">${copy.body_copy}</p>` : ''}
-        ${copy.venue_text ? `<p class="body-text" style="margin-top:4px;">📍 ${copy.venue_text}</p>` : ''}
+      <!-- Row 1: date + time details -->
+      <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+        ${copy.date_badge ? `
+        <div style="display:flex;flex-direction:column;">
+          <span style="
+            font-family:var(--font-display);
+            font-size:${Math.round(infoBarH * 0.22)}px;
+            font-weight:900;
+            color:#FFFFFF;
+            line-height:0.95;
+            letter-spacing:-0.01em;
+          ">${copy.date_badge.split('|')[0]?.trim() || copy.date_badge}</span>
+          ${copy.date_badge.includes('|') ? `
+          <span class="pill-badge" style="margin-top:8px;align-self:flex-start;font-size:11px;">
+            ${copy.date_badge.split('|')[1]?.trim() || ''}
+          </span>` : ''}
+        </div>` : ''}
+
+        <!-- Vertical divider -->
+        ${copy.date_badge && copy.venue_text ? `
+        <div style="width:1.5px;height:${Math.round(infoBarH * 0.35)}px;background:rgba(255,255,255,0.2);"></div>` : ''}
+
+        <!-- Venue info -->
+        ${copy.venue_text ? `
+        <div style="
+          background:${accent};
+          border-radius:8px;
+          padding:10px 16px;
+          max-width:${Math.round(width * 0.38)}px;
+        ">
+          <p style="
+            font-family:var(--font-body);
+            font-size:12px;font-weight:800;
+            color:${contrastColor(accent)};
+            letter-spacing:0.06em;text-transform:uppercase;
+            margin-bottom:3px;
+          ">📍 VENUE</p>
+          <p style="
+            font-family:var(--font-body);
+            font-size:13px;font-weight:600;
+            color:${contrastColor(accent)};
+            line-height:1.3;
+          ">${copy.venue_text}</p>
+        </div>` : ''}
       </div>
 
-      <!-- CTA row -->
-      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
-        <a class="cta-btn" href="#">${copy.cta_text || 'Register Now'}</a>
-        ${copy.tagline ? `<span class="tagline-text">${copy.tagline}</span>` : ''}
+      <!-- Row 2: body copy + CTA -->
+      <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:16px;">
+        <div style="flex:1;">
+          ${copy.body_copy ? `
+          <p class="body-text" style="font-size:13px;color:rgba(255,255,255,0.75);">
+            ${copy.body_copy}
+          </p>` : ''}
+        </div>
+        <a class="cta-btn" style="flex-shrink:0;">
+          ${copy.cta_text || 'Register Now'}
+        </a>
       </div>
     </div>
 
-    <!-- Decorative accent dot top-right -->
+    <!-- ── Info bar top accent line ── -->
     <div style="
-      position:absolute;top:${sz}px;right:${sz}px;
-      width:8px;height:8px;
-      border-radius:50%;
-      background:var(--color-accent);
-      z-index:10;
+      position:absolute;
+      bottom:${infoBarH}px;left:0;right:0;
+      height:4px;z-index:11;
+      background:linear-gradient(to right, ${accent}, ${accent}88, transparent);
     "></div>
   `;
 }
 
-// ── VERTICAL TEMPLATE 9:16 ────────────────────────────────────────────────────
-// Hero top 55%, copy block center, CTA pinned bottom
+
+// ══════════════════════════════════════════════════════════════════════════════
+// VERTICAL TEMPLATE 9:16  (1080×1920)
+// Hero top 50% with cutout bleeding down, copy block below, pinned CTA
+// ══════════════════════════════════════════════════════════════════════════════
 
 function verticalTemplate({ tokens, copy, layout, hero_image_url, width, height }) {
-  const sz = 52;
-  const heroH = Math.round(height * 0.52);
-  const gradientColor = tokens.colorPrimary;
+  const sz = tokens.safeZone;
+  const bg = tokens.colorBg;
+  const accent = tokens.colorAccent;
+  const primary = tokens.colorPrimary;
+
+  const topBarH  = Math.round(height * 0.09);
+  const heroH    = Math.round(height * 0.50);
+  const infoBarH = Math.round(height * 0.14);
+  const hl = Math.round(parseInt(tokens.headlineFontSize) * 1.1) || 120;
 
   return `
     <!-- Background -->
-    <div style="position:absolute;inset:0;z-index:1;background:${gradientColor};"></div>
+    <div style="position:absolute;inset:0;z-index:1;background:${bg};"></div>
 
-    <!-- Hero image top -->
+    <!-- Hero image — top half, bleeds down -->
     ${hero_image_url ? `
-    <div style="position:absolute;top:0;left:0;right:0;height:${heroH}px;z-index:2;overflow:hidden;">
+    <div style="position:absolute;top:0;left:0;right:0;height:${heroH + 80}px;z-index:2;overflow:hidden;">
       <img src="${hero_image_url}"
-        style="width:100%;height:100%;object-fit:cover;object-position:top center;"
-        alt="hero"/>
+        style="width:100%;height:100%;object-fit:cover;object-position:center top;"
+        alt="hero" crossorigin="anonymous"/>
       <div style="
-        position:absolute;bottom:0;left:0;right:0;height:160px;
-        background:linear-gradient(to top,${gradientColor} 0%,transparent 100%);
+        position:absolute;bottom:0;left:0;right:0;height:200px;
+        background:linear-gradient(to top,${bg} 0%,transparent 100%);
       "></div>
     </div>` : ''}
 
-    <!-- Brand top -->
+    <!-- Top brand bar -->
     <div style="
-      position:absolute;top:${sz}px;left:${sz}px;right:${sz}px;
-      z-index:10;display:flex;justify-content:space-between;align-items:center;
+      position:absolute;top:0;left:0;right:0;height:${topBarH}px;
+      z-index:10;
+      display:flex;align-items:center;justify-content:space-between;
+      padding:0 ${sz}px;
+      background:linear-gradient(to bottom,${primary}CC,transparent);
     ">
       ${tokens.logoUrl
         ? `<img src="${tokens.logoUrl}" class="brand-logo" alt="logo"/>`
-        : `<span class="tagline-text">${tokens.brandName || ''}</span>`
+        : `<span class="brand-name-text">${tokens.brandName || ''}</span>`
       }
-      ${copy.date_badge ? `<span class="pill-badge">${copy.date_badge}</span>` : ''}
+      ${copy.date_badge ? `<span class="pill-badge" style="font-size:12px;">${copy.date_badge}</span>` : ''}
     </div>
 
-    <!-- Copy block -->
+    <!-- Middle: Headline -->
     <div style="
       position:absolute;
-      top:${heroH - 20}px;
+      top:${heroH - 30}px;
       left:${sz}px;right:${sz}px;
       z-index:10;
     ">
-      <div class="accent-line" style="margin-bottom:16px;"></div>
-      <h1 class="headline" style="font-size:${Math.round(width * 0.085)}px;margin-bottom:14px;">
-        ${copy.headline || ''}
-      </h1>
-      ${copy.subheadline ? `<p class="subheadline-text" style="margin-bottom:12px;">${copy.subheadline}</p>` : ''}
-      ${copy.body_copy ? `<p class="body-text" style="margin-bottom:8px;">${copy.body_copy}</p>` : ''}
+      ${copy.tagline ? `<div style="margin-bottom:12px;"><span class="tagline-text">${copy.tagline}</span></div>` : ''}
+      <h1 class="headline" style="font-size:${hl}px;margin-bottom:16px;">${copy.headline || ''}</h1>
+      ${copy.subheadline ? `
+      <div style="
+        display:inline-flex;align-items:center;gap:8px;
+        background:${accent};padding:8px 16px;border-radius:6px;margin-bottom:16px;
+      ">
+        <span style="font-family:var(--font-body);font-size:11px;font-weight:800;color:${contrastColor(accent)};letter-spacing:0.08em;text-transform:uppercase;">THEME</span>
+        <span style="font-family:var(--font-body);font-size:14px;font-weight:700;color:${contrastColor(accent)};">${copy.subheadline}</span>
+      </div>` : ''}
+      ${copy.body_copy ? `<p class="body-text" style="margin-bottom:10px;">${copy.body_copy}</p>` : ''}
       ${copy.venue_text ? `<p class="body-text">📍 ${copy.venue_text}</p>` : ''}
     </div>
 
-    <!-- CTA pinned bottom -->
+    <!-- Bottom info bar -->
     <div style="
-      position:absolute;bottom:${sz}px;left:${sz}px;right:${sz}px;
-      z-index:10;text-align:center;
+      position:absolute;bottom:0;left:0;right:0;height:${infoBarH}px;
+      z-index:10;
+      background:${darken(primary, 15)};
+      border-top:3px solid ${accent};
+      padding:0 ${sz}px;
+      display:flex;align-items:center;justify-content:center;
     ">
-      <a class="cta-btn" href="#" style="display:block;text-align:center;font-size:17px;">
-        ${copy.cta_text || 'Register Now'}
-      </a>
-      ${copy.tagline ? `<p class="tagline-text" style="margin-top:14px;text-align:center;">${copy.tagline}</p>` : ''}
+      <a class="cta-btn" style="font-size:18px;padding:20px 60px;">${copy.cta_text || 'Register Now'}</a>
     </div>
   `;
 }
 
-// ── LANDSCAPE TEMPLATE 1.91:1 / 16:9 ─────────────────────────────────────────
-// Split: copy left 48%, hero right 52%
+
+// ══════════════════════════════════════════════════════════════════════════════
+// LANDSCAPE TEMPLATE 1.91:1 / 16:9
+// Left 45% copy, right 55% hero
+// ══════════════════════════════════════════════════════════════════════════════
 
 function landscapeTemplate({ tokens, copy, layout, hero_image_url, width, height }) {
-  const sz = 48;
-  const splitPoint = Math.round(width * 0.48);
-  const gradientColor = tokens.colorPrimary;
+  const sz = tokens.safeZone;
+  const bg = tokens.colorBg;
+  const accent = tokens.colorAccent;
+  const primary = tokens.colorPrimary;
+
+  const splitPoint = Math.round(width * 0.46);
+  const hl = Math.round(parseInt(tokens.headlineFontSize) * 0.65) || 72;
 
   return `
     <!-- Background -->
-    <div style="position:absolute;inset:0;z-index:1;background:${gradientColor};"></div>
+    <div style="position:absolute;inset:0;z-index:1;background:${bg};"></div>
 
     <!-- Right: Hero image -->
     ${hero_image_url ? `
     <div style="
       position:absolute;top:0;right:0;bottom:0;
-      width:${width - splitPoint + 40}px;z-index:2;overflow:hidden;
+      width:${width - splitPoint + 60}px;z-index:2;overflow:hidden;
     ">
       <img src="${hero_image_url}"
         style="width:100%;height:100%;object-fit:cover;object-position:center top;"
-        alt="hero"/>
+        alt="hero" crossorigin="anonymous"/>
       <div style="
-        position:absolute;top:0;left:0;bottom:0;width:120px;
-        background:linear-gradient(to right,${gradientColor} 0%,transparent 100%);
+        position:absolute;top:0;left:0;bottom:0;width:160px;
+        background:linear-gradient(to right,${bg} 0%,transparent 100%);
       "></div>
     </div>` : ''}
-
-    <!-- Vertical accent line -->
-    <div style="
-      position:absolute;left:${splitPoint}px;top:10%;bottom:10%;
-      width:3px;z-index:5;
-      background:linear-gradient(to bottom,transparent,var(--color-accent),transparent);
-      opacity:0.7;
-    "></div>
 
     <!-- Left: Copy -->
     <div style="
@@ -468,26 +672,36 @@ function landscapeTemplate({ tokens, copy, layout, hero_image_url, width, height
       padding:${sz}px;
       z-index:10;
       display:flex;flex-direction:column;justify-content:center;
+      background:linear-gradient(to right, ${primary} 60%, ${primary}00 100%);
     ">
+      <!-- Brand -->
       <div style="margin-bottom:20px;">
         ${tokens.logoUrl
           ? `<img src="${tokens.logoUrl}" class="brand-logo" alt="logo"/>`
-          : `<span class="tagline-text">${tokens.brandName || ''}</span>`
+          : `<span class="brand-name-text">${tokens.brandName || ''}</span>`
         }
       </div>
-      <div class="accent-line" style="margin-bottom:18px;"></div>
-      <h1 class="headline" style="
-        font-size:${Math.round(height * 0.1)}px;
-        margin-bottom:14px;
-      ">${copy.headline || ''}</h1>
-      ${copy.subheadline ? `<p class="subheadline-text" style="margin-bottom:16px;">${copy.subheadline}</p>` : ''}
-      ${copy.date_badge ? `<div style="margin-bottom:16px;"><span class="pill-badge">${copy.date_badge}</span></div>` : ''}
-      <a class="cta-btn" href="#" style="align-self:flex-start;">${copy.cta_text || 'Register Now'}</a>
+      <!-- Accent line -->
+      <div class="accent-line" style="width:40px;margin-bottom:16px;"></div>
+      <!-- Headline -->
+      <h1 class="headline" style="font-size:${hl}px;margin-bottom:14px;">${copy.headline || ''}</h1>
+      ${copy.subheadline ? `<p class="subheadline-text" style="margin-bottom:14px;">${copy.subheadline}</p>` : ''}
+      ${copy.date_badge ? `<div style="margin-bottom:14px;"><span class="pill-badge">${copy.date_badge}</span></div>` : ''}
+      ${copy.venue_text ? `<p class="body-text" style="margin-bottom:16px;">📍 ${copy.venue_text}</p>` : ''}
+      <a class="cta-btn" style="align-self:flex-start;">${copy.cta_text || 'Register Now'}</a>
     </div>
+
+    <!-- Vertical accent rule -->
+    <div style="
+      position:absolute;left:${splitPoint - 2}px;top:10%;bottom:10%;
+      width:3px;z-index:5;
+      background:linear-gradient(to bottom,transparent,${accent},transparent);
+    "></div>
   `;
 }
 
-// ── Color utilities ───────────────────────────────────────────────────────────
+
+// ── Utilities ─────────────────────────────────────────────────────────────────
 
 function darken(hex, percent) {
   try {
