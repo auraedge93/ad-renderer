@@ -242,6 +242,98 @@ function applyDimensionPatches(layout, failingDimensions, specificFixes, brand) 
   return patched;
 }
 
+// ── POST /render/html ─────────────────────────────────────────────────────────
+// Universal HTML renderer. Accepts raw HTML string, renders via Puppeteer.
+// This is the primary endpoint for the HTML Composer Agent path.
+//
+// Request body:
+// {
+//   "html": "<html>...</html>",       // complete HTML document
+//   "width": 1080,                    // canvas width (default: 1080)
+//   "height": 1080,                   // canvas height (default: 1080)
+//   "wait_for": "networkidle0"        // puppeteer waitUntil (default: networkidle0)
+// }
+//
+// Response: { success, url, image_url, fileId, width, height, format, expires_in }
+//
+app.post('/render/html', requireApiKey, async (req, res) => {
+  res.setTimeout(120000);
+  const startTime = Date.now();
+
+  try {
+    const { html, width = 1080, height = 1080, wait_for = 'networkidle0' } = req.body;
+
+    if (!html || typeof html !== 'string' || html.trim().length < 50) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing or invalid "html" field — must be a non-empty HTML string'
+      });
+    }
+
+    if (html.length > 5_000_000) {
+      return res.status(400).json({
+        success: false,
+        error: 'HTML payload too large (max 5MB)'
+      });
+    }
+
+    const canvasWidth  = Math.min(Math.max(parseInt(width)  || 1080, 100), 4000);
+    const canvasHeight = Math.min(Math.max(parseInt(height) || 1080, 100), 4000);
+
+    // Render the raw HTML via Puppeteer
+    const { buffer } = await renderAd(html, {
+      width: canvasWidth,
+      height: canvasHeight,
+      waitUntil: wait_for
+    });
+
+    storeAndRespond(res, req, buffer, canvasWidth, canvasHeight, {
+      render_time_ms: Date.now() - startTime,
+      mode: 'html'
+    });
+
+  } catch (err) {
+    console.error('[render/html] Error:', err.message);
+    res.status(500).json({
+      success: false,
+      error: err.message,
+      render_time_ms: Date.now() - startTime
+    });
+  }
+});
+
+// ── POST /render/html/patch ───────────────────────────────────────────────────
+// HTML surgical patch. Accepts updated HTML after critic revision.
+// Identical to /render/html but semantically distinct for routing clarity.
+//
+app.post('/render/html/patch', requireApiKey, async (req, res) => {
+  res.setTimeout(120000);
+  const startTime = Date.now();
+
+  try {
+    const { html, width = 1080, height = 1080, patches_applied = [] } = req.body;
+
+    if (!html || typeof html !== 'string' || html.trim().length < 50) {
+      return res.status(400).json({ success: false, error: 'Missing or invalid "html" field' });
+    }
+
+    const canvasWidth  = Math.min(Math.max(parseInt(width)  || 1080, 100), 4000);
+    const canvasHeight = Math.min(Math.max(parseInt(height) || 1080, 100), 4000);
+
+    const { buffer } = await renderAd(html, { width: canvasWidth, height: canvasHeight });
+
+    storeAndRespond(res, req, buffer, canvasWidth, canvasHeight, {
+      render_time_ms: Date.now() - startTime,
+      patches_applied,
+      mode: 'html_patch'
+    });
+
+  } catch (err) {
+    console.error('[render/html/patch] Error:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // ── Start ─────────────────────────────────────────────────────────────────────
 app.listen(PORT, () => {
   console.log(`[ad-renderer] v2.0.0 running on port ${PORT}`);
